@@ -101,7 +101,7 @@ type TagInfo struct {
 }
 
 // CloneOrSyncRepo clones a repository to dir or fetches updates if a valid repo already exists.
-func CloneOrSyncRepo(url string, dir string, user string, token string, progress io.Writer) (RepoSyncResult, *git.Repository, error) {
+func CloneOrSyncRepo(url string, dir string, user *string, token *string, progress io.Writer) (RepoSyncResult, *git.Repository, error) {
 	if progress == nil {
 		progress = io.Discard
 	}
@@ -156,10 +156,15 @@ func CloneOrSyncRepo(url string, dir string, user string, token string, progress
 		_ = os.RemoveAll(dir)
 	}
 	cloneMutex.Lock()
-	auth := &httpgit.BasicAuth{
-		Username: user,
-		Password: token,
+
+	var auth transport.AuthMethod
+	if user != nil && token != nil {
+		auth = &httpgit.BasicAuth{
+			Username: *user,
+			Password: *token,
+		}
 	}
+
 	repo, err := git.PlainClone(dir, false, &git.CloneOptions{
 		URL:      url,
 		Depth:    0,
@@ -530,7 +535,7 @@ func folderExists(path string) bool {
 }
 
 // checkAndFetchUpdates detects remote updates and fetches when necessary.
-func checkAndFetchUpdates(repo *git.Repository, user string, token string, progress io.Writer) (bool, error) {
+func checkAndFetchUpdates(repo *git.Repository, user *string, token *string, progress io.Writer) (bool, error) {
 	if progress == nil {
 		progress = io.Discard
 	}
@@ -538,10 +543,15 @@ func checkAndFetchUpdates(repo *git.Repository, user string, token string, progr
 	if err != nil {
 		return false, err
 	}
-	auth := &httpgit.BasicAuth{
-		Username: user,
-		Password: token,
+
+	var auth transport.AuthMethod
+	if user != nil && token != nil {
+		auth = &httpgit.BasicAuth{
+			Username: *user,
+			Password: *token,
+		}
 	}
+
 	refs, err := remote.List(&git.ListOptions{Auth: auth})
 	if err != nil {
 		return false, err
