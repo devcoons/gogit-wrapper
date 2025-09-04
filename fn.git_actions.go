@@ -102,9 +102,9 @@ type TagInfo struct {
 }
 
 type Auth struct {
-	User       *string
-	Token      *string
-	SshKeyPath *string
+	User       string
+	Token      string
+	SshKeyPath string
 }
 
 // CloneOrSyncRepo clones a repository to dir or fetches updates if a valid repo already exists.
@@ -166,12 +166,12 @@ func CloneOrSyncRepo(url string, dir string, auth *Auth, progress io.Writer) (Re
 
 	var authorization transport.AuthMethod
 	if auth != nil {
-		if &auth.User != nil && &auth.Token != nil {
+		if auth.User != "" && auth.Token != "" {
 			authorization = &httpgit.BasicAuth{
 				Username: auth.User,
 				Password: auth.Token,
 			}
-		} else if &auth.SshKeyPath != nil {
+		} else if auth.SshKeyPath != "" {
 			sshkey, _ := os.ReadFile(auth.SshKeyPath)
 			authorization, _ = sshgit.NewPublicKeys("git", sshkey, "")
 		}
@@ -558,12 +558,12 @@ func checkAndFetchUpdates(repo *git.Repository, auth *Auth, progress io.Writer) 
 
 	var authorization transport.AuthMethod
 	if auth != nil {
-		if &auth.User != nil && &auth.Token != nil {
+		if auth.User != "" && auth.Token != "" {
 			authorization = &httpgit.BasicAuth{
 				Username: auth.User,
 				Password: auth.Token,
 			}
-		} else if &auth.SshKeyPath != nil {
+		} else if auth.SshKeyPath != "" {
 			sshkey, _ := os.ReadFile(auth.SshKeyPath)
 			authorization, _ = sshgit.NewPublicKeys("git", sshkey, "")
 		}
