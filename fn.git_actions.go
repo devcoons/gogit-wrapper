@@ -23,6 +23,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	httpgit "github.com/go-git/go-git/v5/plumbing/transport/http"
+	"golang.org/x/crypto/ssh"
 )
 
 var (
@@ -100,8 +101,14 @@ type TagInfo struct {
 	Branches  []string
 }
 
+type Auth struct {
+	User       string
+	Token      string
+	SshKeyPath string
+}
+
 // CloneOrSyncRepo clones a repository to dir or fetches updates if a valid repo already exists.
-func CloneOrSyncRepo(url string, dir string, user *string, token *string, progress io.Writer) (RepoSyncResult, *git.Repository, error) {
+func CloneOrSyncRepo(url string, dir string, auth *Auth, progress io.Writer) (RepoSyncResult, *git.Repository, error) {
 	if progress == nil {
 		progress = io.Discard
 	}
@@ -140,7 +147,7 @@ func CloneOrSyncRepo(url string, dir string, user *string, token *string, progre
 		}
 		if !isRepoCheckedRecently(url) {
 			cloneMutex.Lock()
-			updated, err := checkAndFetchUpdates(repo, user, token, progress)
+			updated, err := checkAndFetchUpdates(repo, auth, progress)
 			cloneMutex.Unlock()
 			if err != nil {
 				return Unknown, nil, fmt.Errorf("[SyncOrUpdateRepo] (%s) Failed to check for updates: %v", url, err)
@@ -157,11 +164,15 @@ func CloneOrSyncRepo(url string, dir string, user *string, token *string, progre
 	}
 	cloneMutex.Lock()
 
-	var auth transport.AuthMethod
-	if user != nil && token != nil {
-		auth = &httpgit.BasicAuth{
-			Username: *user,
-			Password: *token,
+	var authorization transport.AuthMethod
+	if auth != nil {
+		if &auth.User != nil && &auth.Token != nil {
+			authorization = &httpgit.BasicAuth{
+				Username: auth.User,
+				Password: auth.Token,
+			}
+		} else if &auth.SshKeyPath != nil {
+			authorization, _ = ssh.NewPublicKeys("git", auth.SshKeyPath, "")
 		}
 	}
 
@@ -169,7 +180,7 @@ func CloneOrSyncRepo(url string, dir string, user *string, token *string, progre
 		URL:      url,
 		Depth:    0,
 		Tags:     git.AllTags,
-		Auth:     auth,
+		Auth:     authorization,
 		Progress: progress,
 	})
 	cloneMutex.Unlock()
@@ -535,7 +546,7 @@ func folderExists(path string) bool {
 }
 
 // checkAndFetchUpdates detects remote updates and fetches when necessary.
-func checkAndFetchUpdates(repo *git.Repository, user *string, token *string, progress io.Writer) (bool, error) {
+func checkAndFetchUpdates(repo *git.Repository, auth *Auth, progress io.Writer) (bool, error) {
 	if progress == nil {
 		progress = io.Discard
 	}
@@ -544,15 +555,19 @@ func checkAndFetchUpdates(repo *git.Repository, user *string, token *string, pro
 		return false, err
 	}
 
-	var auth transport.AuthMethod
-	if user != nil && token != nil {
-		auth = &httpgit.BasicAuth{
-			Username: *user,
-			Password: *token,
+	var authorization transport.AuthMethod
+	if auth != nil {
+		if &auth.User != nil && &auth.Token != nil {
+			authorization = &httpgit.BasicAuth{
+				Username: auth.User,
+				Password: auth.Token,
+			}
+		} else if &auth.SshKeyPath != nil {
+			authorization, _ = ssh.NewPublicKeys("git", auth.SshKeyPath, "")
 		}
 	}
 
-	refs, err := remote.List(&git.ListOptions{Auth: auth})
+	refs, err := remote.List(&git.ListOptions{Auth: authorization})
 	if err != nil {
 		return false, err
 	}
@@ -580,7 +595,7 @@ func checkAndFetchUpdates(repo *git.Repository, user *string, token *string, pro
 		Progress:   progress,
 		Tags:       git.AllTags,
 		Force:      true,
-		Auth:       auth,
+		Auth:       authorization,
 	})
 	if errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return false, nil
