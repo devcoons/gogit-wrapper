@@ -115,9 +115,7 @@ func CloneOrSyncRepo(url string, dir string, auth *Auth, progress io.Writer) (Re
 	if !strings.Contains(url, "git") {
 		return Unknown, nil, fmt.Errorf("fatal error: [SyncOrUpdateRepo] (%s) Repo Url is invalid", url)
 	}
-	if _, err := SshToHttps(url, false); err != nil {
-		return Unknown, nil, fmt.Errorf("invalid repo URL %q: %w", url, err)
-	}
+
 	folderValid := func() (bool, error) {
 		if !folderExists(dir) {
 			return false, fmt.Errorf("[SyncOrUpdateRepo] (%s) Folder does not exist: %s", url, dir)
