@@ -23,7 +23,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	httpgit "github.com/go-git/go-git/v5/plumbing/transport/http"
-	"golang.org/x/crypto/ssh"
+	sshgit "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
 var (
@@ -102,9 +102,9 @@ type TagInfo struct {
 }
 
 type Auth struct {
-	User       string
-	Token      string
-	SshKeyPath string
+	User       *string
+	Token      *string
+	SshKeyPath *string
 }
 
 // CloneOrSyncRepo clones a repository to dir or fetches updates if a valid repo already exists.
@@ -172,7 +172,8 @@ func CloneOrSyncRepo(url string, dir string, auth *Auth, progress io.Writer) (Re
 				Password: auth.Token,
 			}
 		} else if &auth.SshKeyPath != nil {
-			authorization, _ = ssh.NewPublicKeys("git", auth.SshKeyPath, "")
+			sshkey, _ := os.ReadFile(auth.SshKeyPath)
+			authorization, _ = sshgit.NewPublicKeys("git", sshkey, "")
 		}
 	}
 
@@ -563,7 +564,8 @@ func checkAndFetchUpdates(repo *git.Repository, auth *Auth, progress io.Writer) 
 				Password: auth.Token,
 			}
 		} else if &auth.SshKeyPath != nil {
-			authorization, _ = ssh.NewPublicKeys("git", auth.SshKeyPath, "")
+			sshkey, _ := os.ReadFile(auth.SshKeyPath)
+			authorization, _ = sshgit.NewPublicKeys("git", sshkey, "")
 		}
 	}
 
